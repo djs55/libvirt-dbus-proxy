@@ -14,48 +14,6 @@ module N = Libvirt.Network
 
 open Event
 
-let string_of_state = function
-  | D.InfoNoState -> "no state"
-  | D.InfoRunning -> "running"
-  | D.InfoBlocked -> "blocked"
-  | D.InfoPaused -> "paused"
-  | D.InfoShutdown -> "shutdown"
-  | D.InfoShutoff -> "shutoff"
-  | D.InfoCrashed -> "crashed"
-
-let printd dom fmt =
-  let prefix dom =
-    let id = D.get_id dom in
-    try
-      let name = D.get_name dom in
-      let info = D.get_info dom in
-      let state = string_of_state info.D.state in
-      sprintf "%8d %-20s %s " id name state
-  with _ ->
-      sprintf "%8d " id in
-  let write x =
-    output_string stdout (prefix dom);
-    output_string stdout x;
-    output_string stdout "\n";
-    flush stdout in
-  Printf.ksprintf write fmt
-
-let string_option = function
-  | None -> "None"
-  | Some x -> "Some " ^ x
-
-let string_of_graphics_address (family, node, service) =
-  Printf.sprintf "{ family=%d; node=%s; service=%s }" family (string_option node) (string_option service)
-
-let string_of_graphics_subject_identity (ty, name) =
-  Printf.sprintf "{ type=%s; name=%s }" (string_option ty) (string_option name)
-
-let string_of_graphics_subject xs = String.concat "; " (List.map string_of_graphics_subject_identity (Array.to_list xs))
-
-let map_option f = function
-  | None -> None
-  | Some x -> Some (f x)
-
 let with_all_events name f =
   try
     E.register_default_impl ();
@@ -79,63 +37,48 @@ let with_all_events name f =
     let open Any in
 
     let (_: E.callback_id) = E.register_any conn (E.Lifecycle (fun dom e ->
-        printd dom "Lifecycle %s" (E.Lifecycle.to_string e);
         f dom (Lifecycle e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.Reboot (fun dom e ->
-        printd dom "Reboot %s" (E.Reboot.to_string e);
         f dom (Reboot e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.RtcChange (fun dom e ->
-        printd dom "RtcChange %s" (E.Rtc_change.to_string e);
         f dom (RtcChange e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.Watchdog (fun dom e ->
-        printd dom "Watchdog %s" (E.Watchdog.to_string e);
         f dom (Watchdog e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.IOError (fun dom e ->
-        printd dom "IOError %s" (E.Io_error.to_string e);
         f dom (IOError e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.IOErrorReason (fun dom e ->
-        printd dom "IOErrorReason %s" (E.Io_error.to_string e);
         f dom (IOErrorReason e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.Graphics (fun dom e ->
-        printd dom "Graphics %s" (E.Graphics.to_string e);
         f dom (Graphics e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.ControlError (fun dom e ->
-        printd dom "ControlError %s" (E.Control_error.to_string e);
         f dom (ControlError e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.BlockJob (fun dom e ->
-        printd dom "BlockJob %s" (E.Block_job.to_string e);
         f dom (BlockJob e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.DiskChange (fun dom e ->
-        printd dom "DiskChange %s" (E.Disk_change.to_string e);
         f dom (DiskChange e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.TrayChange (fun dom e ->
-        printd dom "TrayChange %s" (E.Tray_change.to_string e);
         f dom (TrayChange e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.PMWakeUp (fun dom e ->
-        printd dom "PMWakeup %s" (E.PM_wakeup.to_string e);
         f dom (PMWakeUp e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.PMSuspend (fun dom e ->
-        printd dom "PMSuspend %s" (E.PM_suspend.to_string e);
         f dom (PMSuspend e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.BalloonChange (fun dom e ->
-        printd dom "BalloonChange %s" (E.Balloon_change.to_string e);
         f dom (BalloonChange e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.PMSuspendDisk (fun dom e ->
-        printd dom "PMSuspendDisk %s" (E.PM_suspend_disk.to_string e);
         f dom (PMSuspendDisk e)
     )) in
     C.set_keep_alive conn 5 3;
@@ -149,6 +92,13 @@ let with_all_events name f =
 let event_buffer_length = 1024
 let length_buffer_length = 2
 
+type event = {
+  id: int;
+  state: Domain.state option;
+  name: string option;
+  payload: Event.Any.t;
+}
+
 let open_events () =
   let reader, writer = Unix.pipe () in
   let child = Unix.fork () in
@@ -157,7 +107,16 @@ let open_events () =
     let buf = String.make event_buffer_length '\000' in
     let len_buf = String.make length_buffer_length '\000' in
     with_all_events None (fun d e ->
-      let len = Marshal.to_buffer buf 0 event_buffer_length (d, e) [] in
+      let id = D.get_id d in
+      let name, state =
+        try
+          let name = D.get_name d in
+          let info = D.get_info d in
+          Some name, Some info.D.state
+        with _ ->
+          None, None in
+      let event = { id; state; name; payload = e } in
+      let len = Marshal.to_buffer buf 0 event_buffer_length event [] in
       len_buf.[0] <- char_of_int (len / 256);
       len_buf.[1] <- char_of_int (len mod 256);
       let n = Unix.write writer len_buf 0 length_buffer_length in
@@ -193,6 +152,11 @@ let read_events reader =
     complete Lwt_unix.read fd len_buf 0 length_buffer_length >>= fun () ->
     let len = (int_of_char len_buf.[0]) * 256 + (int_of_char len_buf.[1]) in
     complete Lwt_unix.read fd buf 0 len >>= fun () ->
-    let d, e = Marshal.from_string buf 0 in
+    let event : event = Marshal.from_string buf 0 in
+    Lwt_io.fprintlf Lwt_io.stdout "%d %s" event.id (Sexplib.Sexp.to_string_hum (Event.Any.sexp_of_t event.payload)) >>= fun () ->
     loop () in
   loop ()
+
+let _ =
+  let reader = open_events () in
+  Lwt_main.run (read_events reader)
