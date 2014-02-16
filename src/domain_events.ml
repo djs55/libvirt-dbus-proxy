@@ -151,7 +151,7 @@ let complete op fd buf ofs len =
   then fail End_of_file
   else return ()
 
-let read_events reader =
+let read_events reader f =
   let fd = Lwt_unix.of_unix_file_descr reader in
   let buf = String.make event_buffer_length '\000' in
   let len_buf = String.make length_buffer_length '\000' in
@@ -161,9 +161,36 @@ let read_events reader =
     complete Lwt_unix.read fd buf 0 len >>= fun () ->
     let event : event = Marshal.from_string buf 0 in
     Lwt_io.fprintlf Lwt_io.stdout "%d %s" event.id (Sexplib.Sexp.to_string_hum (Event.Any.sexp_of_t event.payload)) >>= fun () ->
+    f event >>= fun () ->
     loop () in
   loop ()
 
+let vm_bus_name = "org.xenserver.vm1"
+
+let vm_path = [ "org"; "xenserver"; "vm" ]
+
+let vm_start _ = failwith "vm_start"
+let vm_stop  _ = failwith "vm_stop"
+
+let vm_interface =
+  Vm.Org_xenserver_Vm1.(make {
+    m_start = (fun obj config -> vm_start config);
+    m_stop  = (fun obj id     -> vm_stop  id);
+  })
+
+let export_dbus_objects reader =
+  OBus_bus.session () >>= fun bus ->
+  OBus_bus.request_name bus vm_bus_name >>= fun _ ->
+  read_events reader
+    (fun event -> match event.name with
+    | None -> return ()
+    | Some name ->
+      let obj = OBus_object.make ~interfaces:[vm_interface] (vm_path @ [ name ]) in
+      OBus_object.attach obj ();
+      OBus_object.export bus obj;
+      return ()
+    )
+
 let _ =
   let reader = open_events (Some "qemu:///system") in
-  Lwt_main.run (read_events reader)
+  Lwt_main.run (export_dbus_objects reader)

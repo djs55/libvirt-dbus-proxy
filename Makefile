@@ -1,9 +1,7 @@
-# OASIS_START
-# DO NOT EDIT (digest: 7b2408909643717852b95f994b273fee)
 
 SETUP = ocaml setup.ml
 
-build: setup.data
+build: setup.data src/vm.ml
 	$(SETUP) -build $(BUILDFLAGS)
 
 doc: setup.data build
@@ -33,6 +31,8 @@ distclean:
 setup.data:
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
+src/vm.ml: org.xenserver.Vm.xml
+	obus-gen-interface -o src/vm org.xenserver.Vm.xml 
+
 .PHONY: build doc test all install uninstall reinstall clean distclean configure
 
-# OASIS_STOP
