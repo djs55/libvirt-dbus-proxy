@@ -36,6 +36,13 @@ let with_all_events name f =
 
     let open Any in
 
+    List.iter
+      (fun (dom, info) -> f dom (Lifecycle (`Started `Booted)))
+      (Domain.get_domains_and_infos conn [Domain.ListActive]);
+    List.iter
+      (fun (dom, info) -> f dom (Lifecycle (`Stopped `Shutdown)))
+      (Domain.get_domains_and_infos conn [Domain.ListInactive]);
+
     let (_: E.callback_id) = E.register_any conn (E.Lifecycle (fun dom e ->
         f dom (Lifecycle e)
     )) in
