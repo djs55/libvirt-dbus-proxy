@@ -12,6 +12,23 @@ module D = Libvirt.Domain
 module E = Libvirt.Event
 module N = Libvirt.Network
 
+type any =
+  | Lifecycle of E.Lifecycle.t
+  | Reboot of E.Reboot.t
+  | RtcChange of E.Rtc_change.t
+  | Watchdog of E.Watchdog.t
+  | IOError of E.Io_error.t
+  | Graphics of E.Graphics.t
+  | IOErrorReason of E.Io_error.t
+  | ControlError of E.Control_error.t
+  | BlockJob of E.Block_job.t
+  | DiskChange of E.Disk_change.t
+  | TrayChange of E.Tray_change.t
+  | PMWakeUp of E.PM_wakeup.t
+  | PMSuspend of E.PM_suspend.t
+  | BalloonChange of E.Balloon_change.t
+  | PMSuspendDisk of E.PM_suspend_disk.t
+
 let string_of_state = function
   | D.InfoNoState -> "no state"
   | D.InfoRunning -> "running"
@@ -54,14 +71,9 @@ let map_option f = function
   | None -> None
   | Some x -> Some (f x)
 
-let () =
+let with_all_events name f =
   try
     E.register_default_impl ();
-    let name =
-      if Array.length Sys.argv >= 2 then
-	Some (Sys.argv.(1))
-      else
-	None in
     let conn = C.connect_readonly ?name () in
 
     let spinner = [| '|'; '/'; '-'; '\\' |] in
@@ -79,56 +91,65 @@ let () =
             Gc.compact ()
         ) in
 
-    (* Check add/remove works *)
-    let id = E.register_any conn (E.Lifecycle (fun dom e ->
-        printd dom "Removed Lifecycle callback %s" (E.Lifecycle.to_string e)
-    )) in
-    E.deregister_any conn id;
-
     let (_: E.callback_id) = E.register_any conn (E.Lifecycle (fun dom e ->
-        printd dom "Lifecycle %s" (E.Lifecycle.to_string e)
+        printd dom "Lifecycle %s" (E.Lifecycle.to_string e);
+        f dom (Lifecycle e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.Reboot (fun dom e ->
-        printd dom "Reboot %s" (E.Reboot.to_string e)
+        printd dom "Reboot %s" (E.Reboot.to_string e);
+        f dom (Reboot e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.RtcChange (fun dom e ->
-        printd dom "RtcChange %s" (E.Rtc_change.to_string e)
+        printd dom "RtcChange %s" (E.Rtc_change.to_string e);
+        f dom (RtcChange e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.Watchdog (fun dom e ->
-        printd dom "Watchdog %s" (E.Watchdog.to_string e)
+        printd dom "Watchdog %s" (E.Watchdog.to_string e);
+        f dom (Watchdog e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.IOError (fun dom e ->
-        printd dom "IOError %s" (E.Io_error.to_string e)
+        printd dom "IOError %s" (E.Io_error.to_string e);
+        f dom (IOError e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.IOErrorReason (fun dom e ->
-        printd dom "IOErrorReason %s" (E.Io_error.to_string e)
+        printd dom "IOErrorReason %s" (E.Io_error.to_string e);
+        f dom (IOErrorReason e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.Graphics (fun dom e ->
-        printd dom "Graphics %s" (E.Graphics.to_string e)
+        printd dom "Graphics %s" (E.Graphics.to_string e);
+        f dom (Graphics e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.ControlError (fun dom e ->
-        printd dom "ControlError %s" (E.Control_error.to_string e)
+        printd dom "ControlError %s" (E.Control_error.to_string e);
+        f dom (ControlError e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.BlockJob (fun dom e ->
-        printd dom "BlockJob %s" (E.Block_job.to_string e)
+        printd dom "BlockJob %s" (E.Block_job.to_string e);
+        f dom (BlockJob e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.DiskChange (fun dom e ->
-        printd dom "DiskChange %s" (E.Disk_change.to_string e)
+        printd dom "DiskChange %s" (E.Disk_change.to_string e);
+        f dom (DiskChange e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.TrayChange (fun dom e ->
-        printd dom "TrayChange %s" (E.Tray_change.to_string e)
+        printd dom "TrayChange %s" (E.Tray_change.to_string e);
+        f dom (TrayChange e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.PMWakeUp (fun dom e ->
-        printd dom "PMWakeup %s" (E.PM_wakeup.to_string e)
+        printd dom "PMWakeup %s" (E.PM_wakeup.to_string e);
+        f dom (PMWakeUp e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.PMSuspend (fun dom e ->
-        printd dom "PMSuspend %s" (E.PM_suspend.to_string e)
+        printd dom "PMSuspend %s" (E.PM_suspend.to_string e);
+        f dom (PMSuspend e)
     )) in
     let (_: E.callback_id) = E.register_any conn (E.BalloonChange (fun dom e ->
-        printd dom "BalloonChange %s" (E.Balloon_change.to_string e)
+        printd dom "BalloonChange %s" (E.Balloon_change.to_string e);
+        f dom (BalloonChange e)
     )) in
-    let (_: E.callback_id) = E.register_any conn (E.PMSuspendDisk (fun dom x ->
-        printd dom "PMSuspendDisk %s" (E.PM_suspend_disk.to_string x)
+    let (_: E.callback_id) = E.register_any conn (E.PMSuspendDisk (fun dom e ->
+        printd dom "PMSuspendDisk %s" (E.PM_suspend_disk.to_string e);
+        f dom (PMSuspendDisk e)
     )) in
     C.set_keep_alive conn 5 3;
     while true do
@@ -139,7 +160,4 @@ let () =
       eprintf "error: %s\n" (Libvirt.Virterror.to_string err)
 
 let () =
-  (* Run the garbage collector which is a good way to check for
-   * memory corruption errors and reference counting issues in libvirt.
-   *)
-  Gc.compact ()
+  with_all_events None (fun _ _ -> ())
