@@ -12,42 +12,7 @@ module D = Libvirt.Domain
 module E = Libvirt.Event
 module N = Libvirt.Network
 
-module Any = struct
-  type t =
-  | Lifecycle of E.Lifecycle.t
-  | Reboot of E.Reboot.t
-  | RtcChange of E.Rtc_change.t
-  | Watchdog of E.Watchdog.t
-  | IOError of E.Io_error.t
-  | Graphics of E.Graphics.t
-  | IOErrorReason of E.Io_error.t
-  | ControlError of E.Control_error.t
-  | BlockJob of E.Block_job.t
-  | DiskChange of E.Disk_change.t
-  | TrayChange of E.Tray_change.t
-  | PMWakeUp of E.PM_wakeup.t
-  | PMSuspend of E.PM_suspend.t
-  | BalloonChange of E.Balloon_change.t
-  | PMSuspendDisk of E.PM_suspend_disk.t
-
-  let to_string = function
-  | Lifecycle x -> E.Lifecycle.to_string x
-  | Reboot x -> E.Reboot.to_string x
-  | RtcChange x -> E.Rtc_change.to_string x
-  | Watchdog x -> E.Watchdog.to_string x
-  | IOError x -> E.Io_error.to_string x
-  | Graphics x -> E.Graphics.to_string x
-  | IOErrorReason x -> E.Io_error.to_string x
-  | ControlError x -> E.Control_error.to_string x
-  | BlockJob x -> E.Block_job.to_string x
-  | DiskChange x -> E.Disk_change.to_string x
-  | TrayChange x -> E.Tray_change.to_string x
-  | PMWakeUp x -> E.PM_wakeup.to_string x
-  | PMSuspend x -> E.PM_suspend.to_string x
-  | BalloonChange x -> E.Balloon_change.to_string x
-  | PMSuspendDisk x -> E.PM_suspend_disk.to_string x
-
-end
+open Event
 
 let string_of_state = function
   | D.InfoNoState -> "no state"

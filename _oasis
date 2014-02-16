@@ -12,4 +12,4 @@ Executable "libvirt-dbus-proxy"
   Path:           src
   MainIs:         domain_events.ml
   Install:        false
-  BuildDepends:   libvirt, lwt, lwt.unix, cmdliner
+  BuildDepends:   libvirt, lwt, lwt.unix, cmdliner, sexplib
