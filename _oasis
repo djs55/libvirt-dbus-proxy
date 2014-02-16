@@ -1,0 +1,15 @@
+OASISFormat: 0.3
+Name:        libvirt-dbus-proxy
+Version:     0.1
+Synopsis:    Expose a libvirt connection over DBus
+Authors:     Dave Scott
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.3), DevFiles (0.3)
+BuildTools:  ocamlbuild
+
+Executable "libvirt-dbus-proxy"
+  CompiledObject: best
+  Path:           src
+  MainIs:         domain_events.ml
+  Install:        false
+  BuildDepends:   libvirt, lwt, lwt.unix, cmdliner
