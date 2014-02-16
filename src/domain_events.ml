@@ -99,14 +99,14 @@ type event = {
   payload: Event.Any.t;
 }
 
-let open_events () =
+let open_events name =
   let reader, writer = Unix.pipe () in
   let child = Unix.fork () in
   if child = 0 then begin
     Unix.close reader;
     let buf = String.make event_buffer_length '\000' in
     let len_buf = String.make length_buffer_length '\000' in
-    with_all_events None (fun d e ->
+    with_all_events name (fun d e ->
       let id = D.get_id d in
       let name, state =
         try
@@ -158,5 +158,5 @@ let read_events reader =
   loop ()
 
 let _ =
-  let reader = open_events () in
+  let reader = open_events (Some "qemu:///system") in
   Lwt_main.run (read_events reader)
