@@ -150,21 +150,23 @@ let vm_path = [ "org"; "xenserver"; "vm" ]
 let domain_CreateXML xml flags =
   fail (Failure "domain_CreateXML")
 
-let domain_Create obj =
-  fail (Failure "domain_Create")
-
-let domain_Destroy obj =
-  fail (Failure "domain_Destroy")
-
-let domain_Shutdown obj =
+let operate_on_domain obj f =
   let path = OBus_object.path obj in
   let name = List.hd (List.rev path) in
   Lwt_preemptive.detach
     (fun () ->
-      let c = C.connect ~name:"qemu:///system" () in
-      let d = D.lookup_by_name c name in
-      D.shutdown d
+      try
+        let c = C.connect ~name:"qemu:///system" () in
+        let d = D.lookup_by_name c name in
+        f d
+      with Libvirt.Virterror err ->
+        eprintf "error: %s\n" (Libvirt.Virterror.to_string err);
+        failwith (Libvirt.Virterror.to_string err)
     ) ()
+
+let domain_Create obj = operate_on_domain obj D.create
+let domain_Destroy obj = operate_on_domain obj D.destroy
+let domain_Shutdown obj = operate_on_domain obj D.shutdown
 
 open Vm
 
