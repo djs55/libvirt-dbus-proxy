@@ -31,8 +31,8 @@ distclean:
 setup.data:
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
-src/vm.ml: org.xenserver.Vm.xml
-	obus-gen-interface -o src/vm org.xenserver.Vm.xml 
+src/vm.ml: org.libvirt.Domain.xml
+	obus-gen-interface -o src/vm org.libvirt.Domain.xml
 
 .PHONY: build doc test all install uninstall reinstall clean distclean configure
 

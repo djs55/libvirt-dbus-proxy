@@ -1,0 +1,17 @@
+<node>
+  <interface name="org.libvirt.DomainManager1">
+    <method name="CreateXML">
+      <arg name="xmlDesc" type="s" direction="in"/>
+      <arg name="flags" type="i" direction="in"/>
+      <arg name="result" type="o" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.libvirt.Domain1">
+    <method name="Create">
+    </method>
+    <method name="Destroy">
+    </method>
+    <method name="Shutdown">
+    </method>
+  </interface>
+</node>

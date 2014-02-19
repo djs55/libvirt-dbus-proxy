@@ -167,25 +167,46 @@ let read_events reader f =
 
 let vm_bus_name = "org.xenserver.vm1"
 
+let domainManager_path = [ "org"; "xenserver"; "DomainManager" ]
+
 let vm_path = [ "org"; "xenserver"; "vm" ]
 
-let vm_start _ = failwith "vm_start"
-let vm_stop  _ = failwith "vm_stop"
+let domain_CreateXML xml flags =
+  fail (Failure "domain_CreateXML")
 
-let vm_interface =
-  Vm.Org_xenserver_Vm1.(make {
-    m_start = (fun obj config -> vm_start config);
-    m_stop  = (fun obj id     -> vm_stop  id);
+let domain_Create obj =
+  fail (Failure "domain_Create")
+
+let domain_Destroy obj =
+  fail (Failure "domain_Destroy")
+
+let domain_Shutdown obj =
+  fail (Failure "domain_Shutdown")
+
+open Vm
+
+let domainManager_intf = Org_libvirt_DomainManager1.(make {
+  m_CreateXML = (fun obj (xml, flags) -> domain_CreateXML xml flags);
+})
+
+let domain_intf = Org_libvirt_Domain1.(make {
+    m_Create = (fun obj () -> domain_Create obj);
+    m_Destroy = (fun obj () -> domain_Destroy obj);
+    m_Shutdown = (fun obj () -> domain_Shutdown obj);
   })
 
 let export_dbus_objects reader =
   OBus_bus.session () >>= fun bus ->
   OBus_bus.request_name bus vm_bus_name >>= fun _ ->
+  let obj = OBus_object.make ~interfaces:[domainManager_intf] domainManager_path in
+  OBus_object.attach obj ();
+  OBus_object.export bus obj;
+
   read_events reader
     (fun event -> match event.name with
     | None -> return ()
     | Some name ->
-      let obj = OBus_object.make ~interfaces:[vm_interface] (vm_path @ [ name ]) in
+      let obj = OBus_object.make ~interfaces:[domain_intf] (vm_path @ [ name ]) in
       OBus_object.attach obj ();
       OBus_object.export bus obj;
       return ()
