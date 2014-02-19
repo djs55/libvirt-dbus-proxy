@@ -137,13 +137,16 @@ type vm = {
   set_id: int -> unit;
   name: string Lwt_react.S.t;
   set_name: string -> unit;
+  running: bool Lwt_react.S.t;
+  set_running: bool -> unit;
 }
 
-let make id uuid name =
+let make ~id ~uuid ~name ~running () =
   let uuid, set_uuid = React.S.create uuid in
   let id, set_id = React.S.create id in
   let name, set_name = React.S.create name in
-  { uuid; set_uuid; id; set_id; name; set_name }
+  let running, set_running = React.S.create running in
+  { uuid; set_uuid; id; set_id; name; set_name; running; set_running }
 
 module StringMap = Map.Make(String)
 
@@ -155,16 +158,19 @@ let update_signals name =
   let id = D.get_id d in
   let name = D.get_name d in
   let uuid = D.get_uuid_string d in
+  let info = D.get_info d in
+  let running = info.D.state = D.InfoRunning || info.D.state = D.InfoBlocked || info.D.state = D.InfoPaused in
   let vm =
     if StringMap.mem name !vms
     then StringMap.find name !vms
     else
-      let vm = make id uuid name in
+      let vm = make ~id ~uuid ~name ~running () in
       vms := StringMap.add name vm !vms;
       vm in
   vm.set_id id;
   vm.set_uuid uuid;
-  vm.set_name name
+  vm.set_name name;
+  vm.set_running running
 
 let read_events reader f =
   let fd = Lwt_unix.of_unix_file_descr reader in
@@ -231,6 +237,7 @@ let domain_intf = Org_libvirt_Domain1.(make {
     p_id = (fun obj -> Lwt_react.S.bind (vm_of_obj obj).id (fun x -> Lwt_react.S.return (Int32.of_int x)));
     p_name = (fun obj -> (vm_of_obj obj).name);
     p_uuid = (fun obj -> (vm_of_obj obj).uuid);
+    p_running = (fun obj -> (vm_of_obj obj).running);
   })
 
 let export_dbus_objects reader =

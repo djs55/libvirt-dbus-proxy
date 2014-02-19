@@ -21,6 +21,7 @@
     </property>
     <property name="uuid" type="s" access="read"/>
     <property name="name" type="s" access="read"/>
+    <property name="running" type="b" access="read"/>
     <method name="Create">
     </method>
     <method name="Destroy">
