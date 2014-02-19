@@ -187,8 +187,20 @@ let domainManager_path = [ "org"; "xenserver"; "DomainManager" ]
 
 let vm_path = [ "org"; "xenserver"; "vm" ]
 
-let domain_CreateXML xml flags =
-  fail (Failure "domain_CreateXML")
+let domain_DefineXML xml =
+  Lwt_preemptive.detach
+    (fun () ->
+      try
+        let c = C.connect () in
+        let d = D.define_xml c xml in
+        let name = D.get_name d in
+        (* XXX: this may fail because the path is being created
+         * by the event thread? *)
+        vm_path @ [ name ]
+      with Libvirt.Virterror err ->
+        eprintf "error: %s\n" (Libvirt.Virterror.to_string err);
+        failwith (Libvirt.Virterror.to_string err)
+    ) ()
 
 let name_of_obj obj =
   let path = OBus_object.path obj in
@@ -219,12 +231,12 @@ let domain_Create obj = operate_on_domain obj D.create
 let domain_Destroy obj = operate_on_domain obj D.destroy
 let domain_Shutdown obj = operate_on_domain obj D.shutdown
 let domain_Reboot obj = operate_on_domain obj D.reboot
-let domain_id obj = operate_on_domain obj D.get_id
+let domain_Undefine obj = operate_on_domain obj D.undefine
 
 open Domain
 
 let domainManager_intf = Org_libvirt_DomainManager1.(make {
-  m_CreateXML = (fun obj (xml, flags) -> domain_CreateXML xml flags);
+  m_DefineXML = (fun obj xml -> domain_DefineXML xml);
 })
 
 let domain_intf = Org_libvirt_Domain1.(make {
@@ -232,6 +244,7 @@ let domain_intf = Org_libvirt_Domain1.(make {
     m_Destroy = (fun obj () -> domain_Destroy obj);
     m_Shutdown = (fun obj () -> domain_Shutdown obj);
     m_Reboot = (fun obj () -> domain_Reboot obj);
+    m_Undefine = (fun obj () -> domain_Undefine obj);
     p_id = (fun obj -> Lwt_react.S.bind (vm_of_obj obj).id (fun x -> Lwt_react.S.return (Int32.of_int x)));
     p_name = (fun obj -> (vm_of_obj obj).name);
     p_uuid = (fun obj -> (vm_of_obj obj).uuid);

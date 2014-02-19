@@ -3,9 +3,8 @@
 "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
   <interface name="org.libvirt.DomainManager1">
-    <method name="CreateXML">
+    <method name="DefineXML">
       <arg name="xmlDesc" type="s" direction="in"/>
-      <arg name="flags" type="i" direction="in"/>
       <arg name="result" type="o" direction="out"/>
     </method>
   </interface>
@@ -29,6 +28,8 @@
     <method name="Shutdown">
     </method>
     <method name="Reboot">
+    </method>
+    <method name="Undefine">
     </method>
   </interface>
 </node>
