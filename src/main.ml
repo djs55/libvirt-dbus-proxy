@@ -187,15 +187,7 @@ let domainManager_path = [ "org"; "xenserver"; "DomainManager" ]
 
 let vm_path = [ "org"; "xenserver"; "vm" ]
 
-let domain_DefineXML xml =
-  C.with_connection
-    (fun c ->
-      let d = D.define_xml c xml in
-      let name = D.get_name d in
-      (* XXX: this may fail because the path is being created
-       * by the event thread? *)
-      vm_path @ [ name ]
-    )
+open Domain
 
 let name_of_obj obj =
   let path = OBus_object.path obj in
@@ -223,12 +215,6 @@ let domain_Shutdown obj = operate_on_domain obj D.shutdown
 let domain_Reboot obj = operate_on_domain obj D.reboot
 let domain_Undefine obj = operate_on_domain obj D.undefine
 
-open Domain
-
-let domainManager_intf = Org_libvirt_DomainManager1.(make {
-  m_DefineXML = (fun obj xml -> domain_DefineXML xml);
-})
-
 let domain_intf = Org_libvirt_Domain1.(make {
     m_Create = (fun obj () -> domain_Create obj);
     m_Destroy = (fun obj () -> domain_Destroy obj);
@@ -240,6 +226,26 @@ let domain_intf = Org_libvirt_Domain1.(make {
     p_uuid = (fun obj -> (vm_of_obj obj).uuid);
     p_running = (fun obj -> (vm_of_obj obj).running);
   })
+
+let export_domain name =
+  OBus_bus.session () >>= fun bus ->
+  let path = vm_path @ [ name ] in
+  let obj = OBus_object.make ~interfaces:[domain_intf] path in
+  OBus_object.attach obj ();
+  OBus_object.export bus obj;
+  return path
+
+let domain_DefineXML xml =
+  C.with_connection
+    (fun c ->
+      let d = D.define_xml c xml in
+      D.get_name d
+    ) >>= fun name ->
+  export_domain name
+
+let domainManager_intf = Org_libvirt_DomainManager1.(make {
+  m_DefineXML = (fun obj xml -> domain_DefineXML xml);
+})
 
 let export_dbus_objects reader =
   OBus_bus.session () >>= fun bus ->
@@ -253,9 +259,7 @@ let export_dbus_objects reader =
     | None -> return ()
     | Some name ->
       Lwt_preemptive.detach update_signals name >>= fun () ->
-      let obj = OBus_object.make ~interfaces:[domain_intf] (vm_path @ [ name ]) in
-      OBus_object.attach obj ();
-      OBus_object.export bus obj;
+      export_domain name >>= fun _ ->
       return ()
     )
 
