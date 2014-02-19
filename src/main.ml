@@ -12,6 +12,8 @@ module E = Libvirt_event
 module N = Libvirt.Network
 module D = Libvirt_domain
 
+let debug = ref false
+
 let with_all_events f =
   try
     E.register_default_impl ();
@@ -20,18 +22,17 @@ let with_all_events f =
     let spinner = [| '|'; '/'; '-'; '\\' |] in
 
     let timeouts = ref 0 in
-    (* Check add/remove works *)
-    let id = E.add_timeout conn 250 (fun () -> Printf.printf "This callback is immediately deregistered\n%!") in
-    E.remove_timeout conn id;
 
-    let (_: E.timer_id) = E.add_timeout conn 250 (* ms *)
+    if !debug then begin
+      let (_: E.timer_id) = E.add_timeout conn 250 (* ms *)
         (fun () ->
             incr timeouts;
             Printf.printf "\r%c  %d timeout callbacks%!" (spinner.(!timeouts mod (Array.length spinner))) !timeouts;
             (* Check for GC errors: *)
             Gc.compact ()
         ) in
-
+        ()
+    end;
     let open E.Any in
 
     List.iter
@@ -257,7 +258,8 @@ let export_dbus_objects reader =
 
 (* Command-line interface *)
 
-let proxy name =
+let proxy name debug' =
+  debug := debug';
   Libvirt_connect.name := name;
   let reader = open_events () in
   Lwt_main.run (export_dbus_objects reader);
@@ -271,10 +273,13 @@ let proxy_cmd =
     `S "DESCRIPTION";
     `P "Expose a libvirt connection over DBus. This allows DBus-aware applications to perform simple VM lifecycle operations without using libvirt directly.";
   ] in
+  let debug =
+    let doc = "enable verbose debugging" in
+    Arg.(value & flag & info [ "debug" ] ~doc) in
   let connection_name =
     let doc = "libvirt connection URI to open" in
     Arg.(value & opt string "qemu:///system" & info ["connection"] ~doc) in
-  Term.(ret(pure proxy $ connection_name)),
+  Term.(ret(pure proxy $ connection_name $ debug)),
   Term.info "proxy" ~doc ~man
 
 let _ =
