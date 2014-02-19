@@ -1,4 +1,7 @@
-<node>
+<!DOCTYPE node PUBLIC
+"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
   <interface name="org.libvirt.DomainManager1">
     <method name="CreateXML">
       <arg name="xmlDesc" type="s" direction="in"/>
@@ -7,6 +10,17 @@
     </method>
   </interface>
   <interface name="org.libvirt.Domain1">
+    <property name="id" type="i" access="read">
+      <doc:doc>
+        <doc:description>
+	  <doc:para>
+            The hypervisor id number for the domain.
+	  </doc:para>
+	</doc:description>
+      </doc:doc>
+    </property>
+    <property name="uuid" type="s" access="read"/>
+    <property name="name" type="s" access="read"/>
     <method name="Create">
     </method>
     <method name="Destroy">

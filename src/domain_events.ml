@@ -7,7 +7,7 @@
 
 open Printf
 
-module C = Libvirt.Connect
+module C = Libvirt_connect
 module E = struct
   include Libvirt.Event
   include Libvirt_event
@@ -15,10 +15,10 @@ end
 module N = Libvirt.Network
 module D = Libvirt_domain
 
-let with_all_events name f =
+let with_all_events f =
   try
     E.register_default_impl ();
-    let conn = C.connect_readonly ?name () in
+    let conn = C.const (C.connect ()) in
 
     let spinner = [| '|'; '/'; '-'; '\\' |] in
 
@@ -104,13 +104,13 @@ type event = {
   payload: E.Any.t;
 }
 
-let open_events name =
+let open_events () =
   let reader, writer = Unix.pipe () in
   let child = Unix.fork () in
   if child = 0 then begin
     Unix.close reader;
     let buffer = IO.make () in
-    with_all_events name (fun d e ->
+    with_all_events (fun d e ->
       let id = D.get_id d in
       let name, state =
         try
@@ -129,6 +129,42 @@ let open_events name =
   reader
 
 open Lwt
+
+type vm = {
+  uuid: string Lwt_react.S.t;
+  set_uuid: string -> unit;
+  id: int Lwt_react.S.t;
+  set_id: int -> unit;
+  name: string Lwt_react.S.t;
+  set_name: string -> unit;
+}
+
+let make id uuid name =
+  let uuid, set_uuid = React.S.create uuid in
+  let id, set_id = React.S.create id in
+  let name, set_name = React.S.create name in
+  { uuid; set_uuid; id; set_id; name; set_name }
+
+module StringMap = Map.Make(String)
+
+let vms = ref StringMap.empty
+
+let update_signals name =
+  let c = C.connect () in
+  let d = D.lookup_by_name c name in
+  let id = D.get_id d in
+  let name = D.get_name d in
+  let uuid = D.get_uuid_string d in
+  let vm =
+    if StringMap.mem name !vms
+    then StringMap.find name !vms
+    else
+      let vm = make id uuid name in
+      vms := StringMap.add name vm !vms;
+      vm in
+  vm.set_id id;
+  vm.set_uuid uuid;
+  vm.set_name name
 
 let read_events reader f =
   let fd = Lwt_unix.of_unix_file_descr reader in
@@ -150,13 +186,24 @@ let vm_path = [ "org"; "xenserver"; "vm" ]
 let domain_CreateXML xml flags =
   fail (Failure "domain_CreateXML")
 
-let operate_on_domain obj f =
+let name_of_obj obj =
   let path = OBus_object.path obj in
-  let name = List.hd (List.rev path) in
+  List.hd (List.rev path)
+
+let vm_of_obj obj =
+  let name = name_of_obj obj in
+  if not(StringMap.mem name !vms) then begin
+    eprintf "FATAL: vm %s not in signal map" name;
+    failwith (Printf.sprintf "vm_of_obj %s" name);
+  end;
+  StringMap.find name !vms
+
+let operate_on_domain obj f =
+  let name = name_of_obj obj in
   Lwt_preemptive.detach
     (fun () ->
       try
-        let c = C.connect ~name:"qemu:///system" () in
+        let c = C.connect () in
         let d = D.lookup_by_name c name in
         f d
       with Libvirt.Virterror err ->
@@ -168,6 +215,7 @@ let domain_Create obj = operate_on_domain obj D.create
 let domain_Destroy obj = operate_on_domain obj D.destroy
 let domain_Shutdown obj = operate_on_domain obj D.shutdown
 let domain_Reboot obj = operate_on_domain obj D.reboot
+let domain_id obj = operate_on_domain obj D.get_id
 
 open Vm
 
@@ -180,6 +228,9 @@ let domain_intf = Org_libvirt_Domain1.(make {
     m_Destroy = (fun obj () -> domain_Destroy obj);
     m_Shutdown = (fun obj () -> domain_Shutdown obj);
     m_Reboot = (fun obj () -> domain_Reboot obj);
+    p_id = (fun obj -> Lwt_react.S.bind (vm_of_obj obj).id (fun x -> Lwt_react.S.return (Int32.of_int x)));
+    p_name = (fun obj -> (vm_of_obj obj).name);
+    p_uuid = (fun obj -> (vm_of_obj obj).uuid);
   })
 
 let export_dbus_objects reader =
@@ -193,6 +244,7 @@ let export_dbus_objects reader =
     (fun event -> match event.name with
     | None -> return ()
     | Some name ->
+      Lwt_preemptive.detach update_signals name >>= fun () ->
       let obj = OBus_object.make ~interfaces:[domain_intf] (vm_path @ [ name ]) in
       OBus_object.attach obj ();
       OBus_object.export bus obj;
@@ -200,5 +252,5 @@ let export_dbus_objects reader =
     )
 
 let _ =
-  let reader = open_events (Some "qemu:///system") in
+  let reader = open_events () in
   Lwt_main.run (export_dbus_objects reader)
