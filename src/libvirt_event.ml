@@ -3,6 +3,7 @@
    Libvirt.Event.* *)
 
 open Sexplib.Std
+include Libvirt.Event
 
 module Mixin_sexplib = struct
   module Defined = struct

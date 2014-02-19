@@ -8,10 +8,7 @@
 open Printf
 
 module C = Libvirt_connect
-module E = struct
-  include Libvirt.Event
-  include Libvirt_event
-end
+module E = Libvirt_event
 module N = Libvirt.Network
 module D = Libvirt_domain
 
