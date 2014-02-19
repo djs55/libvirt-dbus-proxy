@@ -188,19 +188,14 @@ let domainManager_path = [ "org"; "xenserver"; "DomainManager" ]
 let vm_path = [ "org"; "xenserver"; "vm" ]
 
 let domain_DefineXML xml =
-  Lwt_preemptive.detach
-    (fun () ->
-      try
-        let c = C.connect () in
-        let d = D.define_xml c xml in
-        let name = D.get_name d in
-        (* XXX: this may fail because the path is being created
-         * by the event thread? *)
-        vm_path @ [ name ]
-      with Libvirt.Virterror err ->
-        eprintf "error: %s\n" (Libvirt.Virterror.to_string err);
-        failwith (Libvirt.Virterror.to_string err)
-    ) ()
+  C.with_connection
+    (fun c ->
+      let d = D.define_xml c xml in
+      let name = D.get_name d in
+      (* XXX: this may fail because the path is being created
+       * by the event thread? *)
+      vm_path @ [ name ]
+    )
 
 let name_of_obj obj =
   let path = OBus_object.path obj in
@@ -216,16 +211,11 @@ let vm_of_obj obj =
 
 let operate_on_domain obj f =
   let name = name_of_obj obj in
-  Lwt_preemptive.detach
-    (fun () ->
-      try
-        let c = C.connect () in
-        let d = D.lookup_by_name c name in
-        f d
-      with Libvirt.Virterror err ->
-        eprintf "error: %s\n" (Libvirt.Virterror.to_string err);
-        failwith (Libvirt.Virterror.to_string err)
-    ) ()
+  C.with_connection
+    (fun c ->
+      let d = D.lookup_by_name c name in
+      f d
+    )
 
 let domain_Create obj = operate_on_domain obj D.create
 let domain_Destroy obj = operate_on_domain obj D.destroy

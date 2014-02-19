@@ -32,3 +32,15 @@ let connect =
           cache := Some c;
           c
       )
+
+let with_connection f =
+  Lwt_preemptive.detach
+    (fun () ->
+      try
+        let c = connect () in
+        f c
+      with Libvirt.Virterror err ->
+        Printf.eprintf "error: %s\n" (Libvirt.Virterror.to_string err);
+        failwith (Libvirt.Virterror.to_string err)
+    ) ()
+
