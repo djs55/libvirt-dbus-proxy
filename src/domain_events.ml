@@ -8,11 +8,12 @@
 open Printf
 
 module C = Libvirt.Connect
-module D = Libvirt.Domain
-module E = Libvirt.Event
+module E = struct
+  include Libvirt.Event
+  include Libvirt_event
+end
 module N = Libvirt.Network
-
-open Event
+module D = Libvirt_domain
 
 let with_all_events name f =
   try
@@ -34,14 +35,14 @@ let with_all_events name f =
             Gc.compact ()
         ) in
 
-    let open Any in
+    let open E.Any in
 
     List.iter
       (fun (dom, info) -> f dom (Lifecycle (`Started `Booted)))
-      (Domain.get_domains_and_infos conn [Domain.ListActive]);
+      (D.get_domains_and_infos conn [D.ListActive]);
     List.iter
       (fun (dom, info) -> f dom (Lifecycle (`Stopped `Shutdown)))
-      (Domain.get_domains_and_infos conn [Domain.ListInactive]);
+      (D.get_domains_and_infos conn [D.ListInactive]);
 
     let (_: E.callback_id) = E.register_any conn (E.Lifecycle (fun dom e ->
         f dom (Lifecycle e)
@@ -98,9 +99,9 @@ let with_all_events name f =
 
 type event = {
   id: int;
-  state: Domain.state option;
+  state: D.state option;
   name: string option;
-  payload: Event.Any.t;
+  payload: E.Any.t;
 }
 
 let open_events name =
@@ -135,7 +136,7 @@ let read_events reader f =
   let rec loop () =
     IO.Lwt_unix.recv buffer fd >>= fun () ->
     let event : event = IO.unmarshal buffer in
-    Lwt_io.fprintlf Lwt_io.stdout "%d %s" event.id (Sexplib.Sexp.to_string_hum (Event.Any.sexp_of_t event.payload)) >>= fun () ->
+    Lwt_io.fprintlf Lwt_io.stdout "%d %s" event.id (Sexplib.Sexp.to_string_hum (E.Any.sexp_of_t event.payload)) >>= fun () ->
     f event >>= fun () ->
     loop () in
   loop ()
@@ -156,7 +157,14 @@ let domain_Destroy obj =
   fail (Failure "domain_Destroy")
 
 let domain_Shutdown obj =
-  fail (Failure "domain_Shutdown")
+  let path = OBus_object.path obj in
+  let name = List.hd (List.rev path) in
+  Lwt_preemptive.detach
+    (fun () ->
+      let c = C.connect ~name:"qemu:///system" () in
+      let d = D.lookup_by_name c name in
+      D.shutdown d
+    ) ()
 
 open Vm
 

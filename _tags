@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0c8ee91da64f96da9a65dd600812a895)
+# DO NOT EDIT (digest: ea6899c463bfafab51bebfd67f59dcda)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -17,14 +17,18 @@
 <src/domain_events.{native,byte}>: pkg_libvirt
 <src/domain_events.{native,byte}>: pkg_lwt
 <src/domain_events.{native,byte}>: pkg_lwt.unix
+<src/domain_events.{native,byte}>: pkg_lwt.preemptive
+<src/domain_events.{native,byte}>: pkg_threads
 <src/domain_events.{native,byte}>: pkg_cmdliner
 <src/domain_events.{native,byte}>: pkg_sexplib
 <src/domain_events.{native,byte}>: pkg_obus
 <src/*.ml{,i}>: pkg_libvirt
 <src/*.ml{,i}>: pkg_lwt
 <src/*.ml{,i}>: pkg_lwt.unix
+<src/*.ml{,i}>: pkg_lwt.preemptive
+<src/*.ml{,i}>: pkg_threads
 <src/*.ml{,i}>: pkg_cmdliner
 <src/*.ml{,i}>: pkg_sexplib
 <src/*.ml{,i}>: pkg_obus
 # OASIS_STOP
-<src/event.ml{,i}>: syntax_camlp4o, pkg_sexplib.syntax
+<src/libvirt_event.ml{,i}>: syntax_camlp4o, pkg_sexplib.syntax
