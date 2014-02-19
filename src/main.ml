@@ -169,7 +169,7 @@ let update_signals name =
   vm.set_name name;
   vm.set_running running
 
-let read_events reader f =
+let read_events reader f : unit Lwt.t =
   let fd = Lwt_unix.of_unix_file_descr reader in
   let buffer = IO.make () in
   let rec loop () =
@@ -255,6 +255,29 @@ let export_dbus_objects reader =
       return ()
     )
 
-let _ =
+(* Command-line interface *)
+
+let proxy name =
+  Libvirt_connect.name := name;
   let reader = open_events () in
-  Lwt_main.run (export_dbus_objects reader)
+  Lwt_main.run (export_dbus_objects reader);
+  `Ok ()
+
+open Cmdliner
+
+let proxy_cmd =
+  let doc = "expose a libvirt connection over DBus" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Expose a libvirt connection over DBus. This allows DBus-aware applications to perform simple VM lifecycle operations without using libvirt directly.";
+  ] in
+  let connection_name =
+    let doc = "libvirt connection URI to open" in
+    Arg.(value & opt string "qemu:///system" & info ["connection"] ~doc) in
+  Term.(ret(pure proxy $ connection_name)),
+  Term.info "proxy" ~doc ~man
+
+let _ =
+  match Term.eval proxy_cmd with
+  | `Error _ -> exit 1
+  | _ -> exit 0

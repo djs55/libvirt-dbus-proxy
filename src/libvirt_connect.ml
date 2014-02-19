@@ -7,6 +7,8 @@
 
 include Libvirt.Connect
 
+let name = ref ""
+
 let with_lock m f =
   Mutex.lock m;
   try
@@ -26,7 +28,7 @@ let connect =
         match !cache with
         | Some x -> x
         | None ->
-          let c = connect ~name:"qemu:///system" () in
+          let c = connect ~name:(!name) () in
           cache := Some c;
           c
       )
