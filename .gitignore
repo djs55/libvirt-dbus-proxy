@@ -12,3 +12,5 @@ setup.log
 _build
 *.native
 *.byte
+src/domain.ml
+src/domain.mli

@@ -1,7 +1,7 @@
 
 SETUP = ocaml setup.ml
 
-build: setup.data src/vm.ml
+build: setup.data src/domain.ml
 	$(SETUP) -build $(BUILDFLAGS)
 
 doc: setup.data build
@@ -31,8 +31,8 @@ distclean:
 setup.data:
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
-src/vm.ml: org.libvirt.Domain.xml
-	obus-gen-interface -o src/vm org.libvirt.Domain.xml
+src/domain.ml: org.libvirt.Domain.xml
+	obus-gen-interface -o src/domain org.libvirt.Domain.xml
 
 .PHONY: build doc test all install uninstall reinstall clean distclean configure
 

@@ -220,7 +220,7 @@ let domain_Shutdown obj = operate_on_domain obj D.shutdown
 let domain_Reboot obj = operate_on_domain obj D.reboot
 let domain_id obj = operate_on_domain obj D.get_id
 
-open Vm
+open Domain
 
 let domainManager_intf = Org_libvirt_DomainManager1.(make {
   m_CreateXML = (fun obj (xml, flags) -> domain_CreateXML xml flags);
