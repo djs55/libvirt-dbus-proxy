@@ -10,6 +10,6 @@ BuildTools:  ocamlbuild
 Executable "libvirt-dbus-proxy"
   CompiledObject: best
   Path:           src
-  MainIs:         domain_events.ml
+  MainIs:         main.ml
   Install:        false
   BuildDepends:   libvirt, lwt, lwt.unix, lwt.preemptive, threads, cmdliner, sexplib, obus
