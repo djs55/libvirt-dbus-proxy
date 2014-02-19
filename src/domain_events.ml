@@ -167,6 +167,7 @@ let operate_on_domain obj f =
 let domain_Create obj = operate_on_domain obj D.create
 let domain_Destroy obj = operate_on_domain obj D.destroy
 let domain_Shutdown obj = operate_on_domain obj D.shutdown
+let domain_Reboot obj = operate_on_domain obj D.reboot
 
 open Vm
 
@@ -178,6 +179,7 @@ let domain_intf = Org_libvirt_Domain1.(make {
     m_Create = (fun obj () -> domain_Create obj);
     m_Destroy = (fun obj () -> domain_Destroy obj);
     m_Shutdown = (fun obj () -> domain_Shutdown obj);
+    m_Reboot = (fun obj () -> domain_Reboot obj);
   })
 
 let export_dbus_objects reader =
